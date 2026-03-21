@@ -3,6 +3,7 @@ OpenMOSS 任务调度中间件 — 配置加载模块
 """
 import os
 import bcrypt
+import uvicorn
 import yaml
 import threading
 from pathlib import Path
@@ -12,7 +13,7 @@ from typing import Optional
 class AppConfig:
     """应用配置"""
 
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, config_path: str = "../config.yaml"):
         self.config_path = Path(config_path)
         self._data = {}
         self._lock = threading.RLock()  # 可重入锁，防止内部方法嵌套调用时死锁
@@ -22,7 +23,7 @@ class AppConfig:
         """加载配置文件"""
         if not self.config_path.exists():
             # 如果没有 config.yaml，从模板复制
-            example_path = Path("config.example.yaml")
+            example_path = Path("../config.example.yaml")
             if example_path.exists():
                 import shutil
                 shutil.copy(example_path, self.config_path)

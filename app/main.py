@@ -4,6 +4,8 @@ OpenMOSS 任务调度中间件 — 主入口
 import os
 import traceback
 from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI, Depends, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -175,3 +177,6 @@ if os.path.isdir(_webui_dist):
 
     print(f"[WebUI] 已挂载前端: {os.path.abspath(_webui_dist)}")
 
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=6565)
