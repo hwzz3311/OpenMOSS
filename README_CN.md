@@ -1,5 +1,9 @@
 # OpenMOSS
 
+<p align="center">
+  <img src="docs/logo.png" alt="OpenMOSS Logo" width="200" />
+</p>
+
 **基于 OpenClaw 的多 AI Agent 自组织协作平台**
 
 <p align="center">

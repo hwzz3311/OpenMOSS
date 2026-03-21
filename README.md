@@ -1,5 +1,9 @@
 # OpenMOSS
 
+<p align="center">
+  <img src="docs/logo.png" alt="OpenMOSS Logo" width="200" />
+</p>
+
 **Self-Organizing Multi-Agent System for OpenClaw**
 
 <p align="center">

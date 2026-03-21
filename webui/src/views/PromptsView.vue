@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { clipboardCopy } from '@/lib/clipboard'
 import { marked } from 'marked'
 import { promptsApi, adminRuleApi } from '@/api/client'
 import type { AgentPromptMeta, PromptTemplate } from '@/api/client'
@@ -547,7 +548,7 @@ const lobsterCopied = ref(false)
 async function copyWithPrefix() {
   try {
     const text = buildQuickCopyPrefix(previewRole.value) + composedPrompt.value
-    await navigator.clipboard.writeText(text)
+    await clipboardCopy(text)
     lobsterCopied.value = true
     showMessage('🦞 已复制（含对接引导）')
     setTimeout(() => { lobsterCopied.value = false }, 2000)
@@ -559,7 +560,7 @@ async function copyWithPrefix() {
 // 普通复制（仅提示词）
 async function copyToClipboard() {
   try {
-    await navigator.clipboard.writeText(composedPrompt.value)
+    await clipboardCopy(composedPrompt.value)
     copied.value = true
     showMessage('已复制到剪贴板')
     setTimeout(() => { copied.value = false }, 2000)
@@ -576,7 +577,7 @@ async function copyOnboarding() {
     return
   }
   try {
-    await navigator.clipboard.writeText(onboardingSection.value)
+    await clipboardCopy(onboardingSection.value)
     onboardingCopied.value = true
     showMessage('已复制平台对接指引')
     setTimeout(() => { onboardingCopied.value = false }, 2000)
@@ -587,7 +588,7 @@ async function copyOnboarding() {
 
 async function copyEditorContent() {
   try {
-    await navigator.clipboard.writeText(fullEditorContent.value)
+    await clipboardCopy(fullEditorContent.value)
     editorCopied.value = true
     showMessage('已复制到剪贴板')
     setTimeout(() => { editorCopied.value = false }, 2000)

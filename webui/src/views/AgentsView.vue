@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { clipboardCopy } from '@/lib/clipboard'
 import { useDebounceFn } from '@vueuse/core'
 import {
     adminAgentApi,
@@ -335,7 +336,7 @@ async function handleResetKey() {
 
 async function copyNewKey() {
     try {
-        await navigator.clipboard.writeText(newApiKey.value)
+        await clipboardCopy(newApiKey.value)
         keyCopied.value = true
         setTimeout(() => { keyCopied.value = false }, 2000)
     } catch {

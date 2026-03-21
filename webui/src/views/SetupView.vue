@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { setupApi } from '@/api/client'
+import { clipboardCopy } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -61,7 +62,7 @@ function regenerateToken() {
 
 async function copyToken(text: string) {
     try {
-        await navigator.clipboard.writeText(text)
+        await clipboardCopy(text)
     } catch {
         // 静默失败
     }
