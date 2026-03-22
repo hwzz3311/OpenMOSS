@@ -194,10 +194,12 @@
 **移除成员：**
 - 删除 TeamMember
 - 重新生成 TeamProfile（移除该成员信息）
-- 创建 update_soul 任务（因为团队信息变了）
+- **如果团队仍有其他成员**，为剩余每个成员创建 update_soul 任务（因为团队信息变了）
+- **如果团队没有成员了**（被移除的是最后一个成员），不触发 update_soul 任务
 
 **团队删除：**
 - 团队状态必须为 `disabled` 才能删除
+- 如果团队状态为 `active`，返回 `400 Bad Request`，`{"detail": "请先禁用团队再删除"}`
 - 删除所有 TeamMember（级联删除）
 - 删除 TeamProfile
 - 删除 Team 本身
@@ -227,7 +229,7 @@ def generate_profile_content(template: str, team: Team, members: list) -> str:
 | 任务类型 | 说明 | 触发时机 |
 |----------|------|----------|
 | team_intro | 自我介绍任务 | Agent 加入团队时 |
-| update_soul | 更新 SOUL.md 任务 | **该团队所有 Agent 都完成自我介绍后**（包括首次加入时和后续有成员完成时） |
+| update_soul | 更新 SOUL.md 任务 | **该团队所有 Agent 都完成自我介绍后**，为**每个 Agent** 创建一个 update_soul 任务（每个 agent 各自执行） |
 
 ### team_intro 任务描述
 
