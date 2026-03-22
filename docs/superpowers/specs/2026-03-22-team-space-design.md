@@ -104,7 +104,7 @@
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| GET | /api/admin/teams | Admin | 获取团队列表 |
+| GET | /api/admin/teams | Admin | 获取团队列表，支持分页 `?page=1&page_size=20` |
 | POST | /api/admin/teams | Admin | 创建团队 |
 | GET | /api/admin/teams/{id} | Admin | 获取团队详情（含成员） |
 | PUT | /api/admin/teams/{id} | Admin | 更新团队 |
@@ -131,7 +131,7 @@
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| GET | /api/teams/me | Agent | 获取所属团队信息，**如无团队返回 404** |
+| GET | /api/teams/me | Agent | 获取所属团队信息，**如无团队返回 404，团队已禁用返回 403** |
 | GET | /api/teams/me/profile | Agent | 获取团队介绍，**如无团队或团队已禁用返回 403** |
 | PUT | /api/teams/me/intro | Agent | 提交自我介绍，**如无团队或团队已禁用返回 403** |
 
