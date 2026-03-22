@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useDebounceFn, useMediaQuery } from '@vueuse/core'
 import {
+    adminAgentApi,
     adminTaskApi,
     type AdminModuleItem,
     type AdminPageResponse,
@@ -9,12 +10,30 @@ import {
     type AdminSubTaskItem,
     type AdminTaskDetail,
     type AdminTaskItem,
+    type SubTaskUpdateRequest,
 } from '@/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import TextOverflowTooltip from '@/components/common/TextOverflowTooltip.vue'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import {
     Sheet,
     SheetContent,
@@ -65,6 +84,25 @@ const selectedModuleId = ref<string | null>(null)
 const selectedTask = ref<AdminTaskDetail | null>(null)
 const selectedSubTask = ref<AdminSubTaskDetail | null>(null)
 const subTaskSheetOpen = ref(false)
+
+// 编辑模式状态
+const isEditingSubTask = ref(false)
+const editingSubTask = ref<SubTaskUpdateRequest>({})
+const cancelReason = ref('')
+const showCancelDialog = ref(false)
+const isSaving = ref(false)
+const isCancelling = ref(false)
+
+// Agent 列表
+const agentList = ref<{id: string, name: string, role: string}[]>([])
+const loadAgentList = async () => {
+  try {
+    const response = await adminAgentApi.list({ page: 1, page_size: 100 })
+    agentList.value = response.data.items || []
+  } catch (error) {
+    console.error('Failed to load agents', error)
+  }
+}
 
 const taskPageData = ref<AdminPageResponse<AdminTaskItem>>(createEmptyPage<AdminTaskItem>())
 const modulePageData = ref<AdminPageResponse<AdminModuleItem>>(createEmptyPage<AdminModuleItem>())
@@ -137,6 +175,7 @@ watch(subTaskStatus, () => {
 
 onMounted(() => {
     void loadTasks()
+    void loadAgentList()
 })
 
 function createEmptyPage<T>(): AdminPageResponse<T> {
@@ -307,6 +346,64 @@ function getPriorityBadgeClass(priority: string) {
     )
 }
 
+function canEditSubTask(status?: string) {
+    return status && ['pending', 'assigned', 'blocked'].includes(status)
+}
+
+function startEditSubTask() {
+    if (!selectedSubTask.value) return
+    editingSubTask.value = {
+        name: selectedSubTask.value.name,
+        description: selectedSubTask.value.description || '',
+        deliverable: selectedSubTask.value.deliverable || '',
+        acceptance: selectedSubTask.value.acceptance || '',
+        priority: selectedSubTask.value.priority,
+        assigned_agent: selectedSubTask.value.assigned_agent || '',
+    }
+    isEditingSubTask.value = true
+}
+
+function cancelEditSubTask() {
+    isEditingSubTask.value = false
+    editingSubTask.value = {}
+}
+
+async function saveSubTask() {
+    if (!selectedSubTask.value) return
+    isSaving.value = true
+    try {
+        const response = await adminTaskApi.updateSubTask(
+            selectedSubTask.value.id,
+            editingSubTask.value
+        )
+        selectedSubTask.value = response.data
+        isEditingSubTask.value = false
+    } catch (error) {
+        console.error('Failed to save sub task', error)
+        subTaskDetailError.value = '保存失败，请稍后重试。'
+    } finally {
+        isSaving.value = false
+    }
+}
+
+async function confirmForceCancel() {
+    if (!selectedSubTask.value || !cancelReason.value.trim()) return
+    isCancelling.value = true
+    try {
+        const response = await adminTaskApi.forceCancelSubTask(
+            selectedSubTask.value.id,
+            cancelReason.value
+        )
+        selectedSubTask.value = response.data
+        showCancelDialog.value = false
+        cancelReason.value = ''
+    } catch (error) {
+        console.error('Failed to cancel sub task', error)
+        subTaskDetailError.value = '取消失败，请稍后重试。'
+    } finally {
+        isCancelling.value = false
+    }
+}
 
 
 async function loadTasks() {
@@ -901,7 +998,7 @@ async function openSubTaskDetail(subTaskId: string) {
                     <template v-else-if="selectedSubTask">
                         <div class="space-y-4">
                             <!-- 标签 -->
-                            <div class="flex flex-wrap gap-1.5">
+                            <div class="flex flex-wrap items-center gap-1.5">
                                 <Badge variant="outline" :class="getSubTaskBadgeClass(selectedSubTask.status)">
                                     {{ formatSubTaskStatus(selectedSubTask.status) }}
                                 </Badge>
@@ -911,10 +1008,72 @@ async function openSubTaskDetail(subTaskId: string) {
                                 <Badge variant="secondary">
                                     {{ formatTaskType(selectedSubTask.type) }}
                                 </Badge>
+                                <Button
+                                    v-if="!isEditingSubTask && canEditSubTask(selectedSubTask.status)"
+                                    variant="outline"
+                                    size="sm"
+                                    class="ml-auto"
+                                    @click="startEditSubTask"
+                                >
+                                    编辑
+                                </Button>
                             </div>
 
-                            <!-- 名称+描述 -->
-                            <div>
+                            <!-- 编辑模式/显示模式 -->
+                            <div v-if="isEditingSubTask" class="space-y-4">
+                                <div class="grid gap-2">
+                                    <Label class="text-xs">名称</Label>
+                                    <Input v-model="editingSubTask.name" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label class="text-xs">描述</Label>
+                                    <Textarea v-model="editingSubTask.description" rows="3" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label class="text-xs">交付物</Label>
+                                    <Input v-model="editingSubTask.deliverable" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label class="text-xs">验收标准</Label>
+                                    <Input v-model="editingSubTask.acceptance" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label class="text-xs">优先级</Label>
+                                    <Select v-model="editingSubTask.priority">
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="high">高</SelectItem>
+                                            <SelectItem value="medium">中</SelectItem>
+                                            <SelectItem value="low">低</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label class="text-xs">指派 Agent</Label>
+                                    <Select v-model="editingSubTask.assigned_agent">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="选择 Agent" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">取消指派</SelectItem>
+                                            <SelectItem v-for="agent in agentList" :key="agent.id" :value="agent.id">
+                                                {{ agent.name }} ({{ agent.role }})
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div class="flex gap-2">
+                                    <Button @click="saveSubTask" :disabled="isSaving" size="sm">
+                                        {{ isSaving ? '保存中...' : '保存' }}
+                                    </Button>
+                                    <Button variant="outline" @click="cancelEditSubTask" size="sm">
+                                        取消
+                                    </Button>
+                                </div>
+                            </div>
+                            <div v-else>
                                 <h3 class="text-lg font-semibold leading-7">{{ selectedSubTask.name }}</h3>
                                 <p class="mt-1.5 text-sm leading-6 text-muted-foreground whitespace-pre-wrap">
                                     {{ selectedSubTask.description || '暂无子任务说明。' }}
@@ -975,7 +1134,44 @@ async function openSubTaskDetail(subTaskId: string) {
                                         }}</span></span>
                                 <span>更新于 {{ formatDate(selectedSubTask.updated_at) }}</span>
                             </div>
+
+                            <!-- 强制取消按钮 -->
+                            <div v-if="selectedSubTask.status !== 'cancelled'" class="pt-2">
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    @click="showCancelDialog = true"
+                                >
+                                    强制取消
+                                </Button>
+                            </div>
                         </div>
+
+                        <!-- 取消确认对话框 -->
+                        <Dialog :open="showCancelDialog" @update:open="showCancelDialog = $event">
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>强制取消子任务</DialogTitle>
+                                    <DialogDescription>
+                                        确定要强制取消 "{{ selectedSubTask?.name }}" 吗？此操作不可撤销。
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div class="grid gap-2">
+                                    <Label>取消原因</Label>
+                                    <Textarea v-model="cancelReason" placeholder="请输入取消原因" />
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" @click="showCancelDialog = false">取消</Button>
+                                    <Button
+                                        variant="destructive"
+                                        @click="confirmForceCancel"
+                                        :disabled="!cancelReason.trim() || isCancelling"
+                                    >
+                                        {{ isCancelling ? '处理中...' : '确认取消' }}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </template>
                 </div>
             </SheetContent>
