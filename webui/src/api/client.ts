@@ -133,6 +133,15 @@ export interface AdminSubTaskListParams {
   sort_order?: string
 }
 
+export interface SubTaskUpdateRequest {
+  name?: string
+  description?: string
+  deliverable?: string
+  acceptance?: string
+  priority?: string
+  assigned_agent?: string
+}
+
 // ── Agent 管理端类型 ──
 
 export interface AdminAgentItem {
@@ -216,6 +225,10 @@ export const adminTaskApi = {
   listSubTasks: (taskId: string, params?: AdminSubTaskListParams) =>
     api.get<AdminPageResponse<AdminSubTaskItem>>(`/admin/tasks/${taskId}/sub-tasks`, { params }),
   getSubTask: (subTaskId: string) => api.get<AdminSubTaskDetail>(`/admin/sub-tasks/${subTaskId}`),
+  updateSubTask: (id: string, data: SubTaskUpdateRequest) =>
+    api.put<AdminSubTaskDetail>(`/admin/sub-tasks/${id}`, data),
+  forceCancelSubTask: (id: string, reason: string) =>
+    api.post<AdminSubTaskDetail>(`/admin/sub-tasks/${id}/force-cancel`, { reason }),
 }
 
 export const taskApi = {
