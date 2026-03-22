@@ -288,3 +288,67 @@ def cancel_sub_task(db: Session, sub_task_id: str) -> SubTask:
     db.commit()
     db.refresh(sub_task)
     return sub_task
+
+
+# ============================================================
+# 管理员操作方法
+# ============================================================
+
+def force_cancel_sub_task(db: Session, sub_task_id: str) -> SubTask:
+    """
+    强制取消子任务（跳过状态机，直接改为 cancelled）
+    """
+    sub_task = db.query(SubTask).filter(SubTask.id == sub_task_id).first()
+    if not sub_task:
+        raise ValueError(f"子任务 {sub_task_id} 不存在")
+    if sub_task.status in ("done", "cancelled"):
+        raise ValueError(f"子任务状态为 {sub_task.status}，无法取消")
+
+    sub_task.status = "cancelled"
+    sub_task.current_session_id = None
+    db.commit()
+    db.refresh(sub_task)
+    return sub_task
+
+
+def admin_update_sub_task(
+    db: Session,
+    sub_task_id: str,
+    name: str = None,
+    description: str = None,
+    deliverable: str = None,
+    acceptance: str = None,
+    priority: str = None,
+    assigned_agent: str = None,
+) -> SubTask:
+    """
+    管理员更新子任务（支持更多状态）
+    """
+    sub_task = db.query(SubTask).filter(SubTask.id == sub_task_id).first()
+    if not sub_task:
+        raise ValueError(f"子任务 {sub_task_id} 不存在")
+    if sub_task.status not in ("pending", "assigned", "blocked"):
+        raise ValueError(f"子任务状态为 {sub_task.status}，只有 pending/assigned/blocked 状态可编辑")
+
+    # 验证 assigned_agent（如果提供了）
+    if assigned_agent is not None:
+        if assigned_agent:
+            agent = db.query(Agent).filter(Agent.id == assigned_agent).first()
+            if not agent:
+                raise ValueError(f"Agent {assigned_agent} 不存在")
+        sub_task.assigned_agent = assigned_agent
+
+    if name is not None:
+        sub_task.name = name
+    if description is not None:
+        sub_task.description = description
+    if deliverable is not None:
+        sub_task.deliverable = deliverable
+    if acceptance is not None:
+        sub_task.acceptance = acceptance
+    if priority is not None:
+        sub_task.priority = priority
+
+    db.commit()
+    db.refresh(sub_task)
+    return sub_task
