@@ -13,10 +13,12 @@ from app.schemas.admin_task import (
     AdminModulePageResponse,
     AdminSubTaskDetail,
     AdminSubTaskPageResponse,
+    AdminSubTaskUpdateRequest,
     AdminTaskDetail,
     AdminTaskPageResponse,
+    ForceCancelRequest,
 )
-from app.services import admin_task_query_service
+from app.services import admin_task_query_service, sub_task_service
 
 
 router = APIRouter(prefix="/admin", tags=["Admin Task"])
@@ -232,5 +234,46 @@ async def get_admin_sub_task_detail(
     """查看管理端子任务详情"""
     try:
         return admin_task_query_service.get_sub_task_detail(db, sub_task_id)
+    except Exception as exc:
+        _raise_admin_query_error(exc)
+
+
+@router.put("/sub-tasks/{sub_task_id}", response_model=AdminSubTaskDetail, summary="管理员修改子任务")
+async def admin_update_sub_task(
+    sub_task_id: str,
+    req: AdminSubTaskUpdateRequest,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """管理员修改子任务（支持 pending/assigned/blocked 状态）"""
+    try:
+        return sub_task_service.admin_update_sub_task(
+            db,
+            sub_task_id,
+            name=req.name,
+            description=req.description,
+            deliverable=req.deliverable,
+            acceptance=req.acceptance,
+            priority=req.priority,
+            assigned_agent=req.assigned_agent,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as exc:
+        _raise_admin_query_error(exc)
+
+
+@router.post("/sub-tasks/{sub_task_id}/force-cancel", response_model=AdminSubTaskDetail, summary="强制取消子任务")
+async def force_cancel_sub_task(
+    sub_task_id: str,
+    req: ForceCancelRequest,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """强制取消子任务（跳过状态机）"""
+    try:
+        return sub_task_service.force_cancel_sub_task(db, sub_task_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as exc:
         _raise_admin_query_error(exc)
