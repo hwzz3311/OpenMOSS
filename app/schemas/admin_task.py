@@ -108,3 +108,22 @@ class AdminSubTaskPageResponse(BaseModel):
     page_size: int = 20
     total_pages: int = 1
     has_more: bool = False
+
+
+# ============================================================
+# 请求模型
+# ============================================================
+
+class AdminSubTaskUpdateRequest(BaseModel):
+    """子任务更新请求"""
+    name: Optional[str] = Field(None, description="子任务名称")
+    description: Optional[str] = Field(None, description="任务描述")
+    deliverable: Optional[str] = Field(None, description="交付物")
+    acceptance: Optional[str] = Field(None, description="验收标准")
+    priority: Optional[str] = Field(None, description="优先级: high/medium/low")
+    assigned_agent: Optional[str] = Field(None, description="指派 Agent ID")
+
+
+class ForceCancelRequest(BaseModel):
+    """强制取消请求"""
+    reason: str = Field(..., description="取消原因")
