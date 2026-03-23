@@ -1,0 +1,226 @@
+"""
+Admin 端点 - 团队管理
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from typing import Optional
+from pydantic import BaseModel
+
+from app.auth.dependencies import verify_admin
+from app.database import get_db
+from app.services import team_service
+
+
+router = APIRouter(prefix="/admin/teams", tags=["Admin Team"])
+
+
+# ============================================================
+# Request/Response Models (inline for simplicity)
+# ============================================================
+
+class AdminTeamCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+
+
+class AdminTeamUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+
+class AdminTeamMemberAddRequest(BaseModel):
+    agent_id: str
+
+
+# ============================================================
+# 团队管理
+# ============================================================
+
+@router.get("")
+async def list_teams(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """分页查询团队列表"""
+    result = team_service.list_teams(db, page, page_size)
+    return result
+
+
+@router.post("")
+async def create_team(
+    req: AdminTeamCreateRequest,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """创建团队"""
+    try:
+        team = team_service.create_team(db, req.name, req.description)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"id": team.id, "name": team.name}
+
+
+@router.get("/{team_id}")
+async def get_team(
+    team_id: str,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """获取团队详情（含成员）"""
+    team = team_service.get_team_by_id(db, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="团队不存在")
+
+    members_data = team_service.get_team_members(db, team_id)
+    member_count = len(members_data)
+
+    return {
+        "id": team.id,
+        "name": team.name,
+        "description": team.description,
+        "status": team.status,
+        "member_count": member_count,
+        "members": members_data,
+        "created_at": team.created_at,
+        "updated_at": team.updated_at,
+    }
+
+
+@router.put("/{team_id}")
+async def update_team(
+    team_id: str,
+    req: AdminTeamUpdateRequest,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """更新团队"""
+    try:
+        team = team_service.update_team(
+            db, team_id,
+            name=req.name,
+            description=req.description,
+            status=req.status,
+        )
+    except ValueError as e:
+        if "不存在" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"id": team.id, "name": team.name, "status": team.status}
+
+
+@router.delete("/{team_id}")
+async def delete_team(
+    team_id: str,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """删除团队"""
+    try:
+        team_service.delete_team(db, team_id)
+    except ValueError as e:
+        if "不存在" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        if "请先禁用" in str(e):
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "团队已删除"}
+
+
+# ============================================================
+# 成员管理
+# ============================================================
+
+@router.post("/{team_id}/members")
+async def add_member(
+    team_id: str,
+    req: AdminTeamMemberAddRequest,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """添加团队成员"""
+    try:
+        member = team_service.add_team_member(db, team_id, req.agent_id)
+    except ValueError as e:
+        detail = str(e)
+        if "不存在" in detail:
+            raise HTTPException(status_code=404, detail=detail)
+        if "已有归属团队" in detail:
+            raise HTTPException(status_code=400, detail=detail)
+        if "已禁用" in detail:
+            raise HTTPException(status_code=403, detail=detail)
+        raise HTTPException(status_code=400, detail=detail)
+    return {"agent_id": member.agent_id, "message": "成员已添加"}
+
+
+@router.delete("/{team_id}/members/{agent_id}")
+async def remove_member(
+    team_id: str,
+    agent_id: str,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """移除团队成员"""
+    try:
+        team_service.remove_team_member(db, team_id, agent_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"message": "成员已移除"}
+
+
+# ============================================================
+# 团队介绍
+# ============================================================
+
+@router.get("/{team_id}/profile")
+async def get_profile(
+    team_id: str,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """获取团队介绍"""
+    profile = team_service.get_team_profile(db, team_id)
+    if not profile:
+        return {"content": "", "version": 0}
+    return {"content": profile.content, "version": profile.version, "updated_at": profile.updated_at}
+
+
+@router.put("/{team_id}/profile")
+async def update_profile(
+    team_id: str,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """手动触发团队介绍生成"""
+    try:
+        profile = team_service.generate_team_profile(db, team_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"version": profile.version}
+
+
+# ============================================================
+# 模板管理
+# ============================================================
+
+@router.get("/template")
+async def get_template(
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """获取介绍生成模板"""
+    template = team_service.get_template(db)
+    return {"content": template.content}
+
+
+@router.put("/template")
+async def update_template(
+    req: dict,
+    _: bool = Depends(verify_admin),
+    db: Session = Depends(get_db),
+):
+    """更新介绍生成模板"""
+    template = team_service.update_template(db, req.get("content", ""))
+    return {"message": "模板已更新"}

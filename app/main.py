@@ -33,6 +33,8 @@ from app.routers import (
     sub_tasks,
     tasks,
     tools,
+    teams,
+    admin_teams,
 )
 from app.middleware.request_logger import RequestLoggerMiddleware
 
@@ -153,6 +155,8 @@ app.include_router(feed.router, prefix=API_PREFIX)
 app.include_router(prompts.router, prefix=API_PREFIX)
 app.include_router(tools.router, prefix=API_PREFIX)
 app.include_router(setup.router, prefix=API_PREFIX)
+app.include_router(teams.router, prefix=API_PREFIX)
+app.include_router(admin_teams.router, prefix=API_PREFIX)
 
 
 # ============================================================

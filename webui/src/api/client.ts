@@ -616,3 +616,79 @@ export const promptsApi = {
   // 平台对接指引
   getOnboarding: (role: string) => api.get<{ role: string; content: string }>(`/admin/prompts/onboarding/${role}`),
 }
+
+// ============================================================
+// Team Space API
+// ============================================================
+
+export interface TeamItem {
+  id: string
+  name: string
+  description: string
+  status: string
+  member_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface TeamMemberItem {
+  id: string
+  agent_id: string
+  agent_name: string
+  role: string
+  self_introduction: string | null
+  added_at: string
+}
+
+export interface TeamDetail {
+  id: string
+  name: string
+  description: string
+  status: string
+  member_count: number
+  members: TeamMemberItem[]
+  created_at: string
+  updated_at: string
+}
+
+export interface TeamPageResponse {
+  items: TeamItem[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export const teamApi = {
+  // Agent 端点
+  getMyTeam: () => api.get<{ id: string; name: string; description: string; status: string }>('/teams/me'),
+  getTeamProfile: () => api.get<{ content: string; version: number }>('/teams/me/profile'),
+  updateIntro: (self_introduction: string) => api.put('/teams/me/intro', { self_introduction }),
+}
+
+export const adminTeamApi = {
+  // 团队管理
+  list: (params?: { page?: number; page_size?: number }) =>
+    api.get<TeamPageResponse>('/admin/teams', { params }),
+  get: (teamId: string) => api.get<TeamDetail>(`/admin/teams/${teamId}`),
+  create: (data: { name: string; description?: string }) => api.post('/admin/teams', data),
+  update: (teamId: string, data: { name?: string; description?: string; status?: string }) =>
+    api.put(`/admin/teams/${teamId}`, data),
+  delete: (teamId: string) => api.delete(`/admin/teams/${teamId}`),
+
+  // 成员管理
+  addMember: (teamId: string, agentId: string) =>
+    api.post(`/admin/teams/${teamId}/members`, { agent_id: agentId }),
+  removeMember: (teamId: string, agentId: string) =>
+    api.delete(`/admin/teams/${teamId}/members/${agentId}`),
+
+  // 团队介绍
+  getProfile: (teamId: string) =>
+    api.get<{ content: string; version: number; updated_at: string }>(`/admin/teams/${teamId}/profile`),
+  updateProfile: (teamId: string) =>
+    api.put<{ version: number }>(`/admin/teams/${teamId}/profile`),
+
+  // 模板管理
+  getTemplate: () => api.get<{ content: string }>('/admin/teams/template'),
+  updateTemplate: (content: string) => api.put('/admin/teams/template', { content }),
+}
