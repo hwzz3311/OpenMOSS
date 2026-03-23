@@ -96,6 +96,7 @@ export interface AdminSubTaskItem {
   deliverable: string
   acceptance: string
   remarks: string | null
+  recurring_config: object | null
   created_at: string | null
   updated_at: string | null
   completed_at: string | null
@@ -234,7 +235,7 @@ export const subTaskApi = {
   list: (params?: { task_id?: string; status?: string; page?: number; page_size?: number }) =>
     api.get('/sub-tasks', { params }),
   get: (id: string) => api.get(`/sub-tasks/${id}`),
-  update: (id: string, data: { name?: string; description?: string; deliverable?: string; acceptance?: string; priority?: string; type?: string; remarks?: string }) =>
+  update: (id: string, data: { name?: string; description?: string; deliverable?: string; acceptance?: string; priority?: string; type?: string; remarks?: string; status?: string; assigned_agent?: string; recurring_config?: object }) =>
     api.put(`/sub-tasks/${id}`, data),
 }
 

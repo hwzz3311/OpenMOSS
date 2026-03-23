@@ -61,7 +61,7 @@ async def create_team(
         team = team_service.create_team(db, req.name, req.description, req.working_dir or None)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return {"id": team.id, "name": team.name}
+    return {"id": team.id, "name": team.name, "working_dir": team.working_dir}
 
 
 @router.get("/{team_id}")

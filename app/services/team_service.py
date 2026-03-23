@@ -105,6 +105,7 @@ def list_teams(db: Session, page: int = 1, page_size: int = 20) -> dict:
             "name": team.name,
             "description": team.description,
             "status": team.status,
+            "working_dir": team.working_dir,
             "member_count": member_count,
             "created_at": team.created_at,
             "updated_at": team.updated_at,

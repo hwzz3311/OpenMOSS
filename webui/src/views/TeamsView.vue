@@ -150,7 +150,7 @@
               </div>
               <div>
                 <Label>工作目录</Label>
-                <Input v-model="newTeam.working_dir" placeholder="例如: /workspace/teams/my-team" />
+                <Input v-model="newTeam.working_dir" placeholder="例如: /workspace/teams/my-team" required />
               </div>
               <div class="flex justify-end gap-3">
                 <Button type="button" variant="outline" @click="showCreateModal = false">取消</Button>
@@ -177,6 +177,10 @@
               <div>
                 <Label>团队描述</Label>
                 <textarea v-model="editData.description" class="w-full min-h-[80px] px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div>
+                <Label>工作目录</Label>
+                <Input :model-value="editData.working_dir" disabled class="bg-muted" />
               </div>
               <div>
                 <Label>状态</Label>
@@ -285,7 +289,7 @@ const showAddMemberModal = ref(false)
 const showTemplateModal = ref(false)
 
 const newTeam = ref({ name: '', description: '', working_dir: '' })
-const editData = ref({ name: '', description: '', status: 'active' })
+const editData = ref({ name: '', description: '', status: 'active', working_dir: '' })
 const newMember = ref({ agentId: '' })
 const availableAgents = ref<any[]>([])
 const teamMembers = ref<any[]>([])  // 所有团队的成员信息
@@ -343,6 +347,7 @@ function editTeam(team: any) {
     name: team.name,
     description: team.description,
     status: team.status,
+    working_dir: team.working_dir || '未设置',
   }
   selectedTeam.value = team
   showEditModal.value = true
