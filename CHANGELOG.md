@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Agent Collaboration in Team Profile** - Team introduction template now includes role collaboration configuration
+  - Added "角色协作配置" section with notification templates for each role (planner, executor, reviewer, patrol)
+  - Added OpenClaw `agent` command examples for agent-to-agent notification
+  - Complete notification flow: planner → executor → reviewer → patrol → planner
+  - Planner can now receive notifications from executor (blockers), reviewer (rejection), patrol (task completion)
+
 ## [1.0.0] - 2026-03-21
 
 ### Added
