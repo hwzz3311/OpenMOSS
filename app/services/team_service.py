@@ -251,6 +251,9 @@ def add_team_member(db: Session, team_id: str, agent_id: str) -> TeamMember:
     db.commit()
     db.refresh(member)
 
+    # 自动生成团队介绍
+    generate_team_profile(db, team_id)
+
     return member
 
 
