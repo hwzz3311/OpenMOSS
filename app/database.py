@@ -143,6 +143,14 @@ def _migrate_team_fields():
                 db.execute(text("ALTER TABLE sub_task ADD COLUMN remarks TEXT"))
                 db.commit()
                 print("[Database] 已迁移 sub_task 表添加 remarks 字段")
+
+        # 为 team 表添加 working_dir 字段
+        if "team" in tables:
+            team_columns = [c["name"] for c in inspector.get_columns("team")]
+            if "working_dir" not in team_columns:
+                db.execute(text("ALTER TABLE team ADD COLUMN working_dir VARCHAR(500)"))
+                db.commit()
+                print("[Database] 已迁移 team 表添加 working_dir 字段")
     except Exception as e:
         db.rollback()
         print(f"[Database] 迁移字段失败: {e}")
