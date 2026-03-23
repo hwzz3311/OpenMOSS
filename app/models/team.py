@@ -78,6 +78,86 @@ class TeamProfileTemplate(Base):
 ## 团队成员
 {{members}}
 
+## 角色协作配置
+
+本团队通过 OpenClaw agent-send 机制实现主动通知，替代定时轮询。
+
+### 规划师 (planner)
+- **职责**：分析数据、制定计划、拆分任务
+- **需要通知的执行者**：请根据团队配置指定
+- **通知模板**：
+  ```
+  【新任务通知】
+
+  任务：{{task_name}}
+  子任务：{{sub_task_name}}
+  任务ID：{{task_id}}
+  子任务ID：{{sub_task_id}}
+
+  详情：{{description}}
+  验收标准：{{acceptance}}
+
+  请前往系统认领并执行：GET /api/sub-tasks/{{sub_task_id}}
+
+  遇到问题时可通过消息渠道联系规划师。
+  ```
+
+### 执行者 (executor)
+- **职责**：根据计划创作内容并发布
+- **需要通知的审核者**：请根据团队配置指定
+- **通知模板**：
+  ```
+  【任务提交审核】
+
+  任务：{{task_name}}
+  子任务：{{sub_task_name}}
+  任务ID：{{task_id}}
+  子任务ID：{{sub_task_id}}
+
+  交付物：{{deliverable}}
+  状态：{{from_status}} → {{to_status}}
+
+  请前往系统审核：GET /api/sub-tasks/{{sub_task_id}}
+
+  遇到问题时可通过消息渠道联系执行者。
+  ```
+
+### 审核者 (reviewer)
+- **职责**：审核内容质量，通过或驳回
+- **审核通过时**：任务完成
+- **审核驳回时通知**：原执行者
+- **通知模板**：
+  ```
+  【任务需要返工】
+
+  任务：{{task_name}}
+  子任务：{{sub_task_name}}
+  任务ID：{{task_id}}
+  子任务ID：{{sub_task_id}}
+
+  原因：{{rejection_reason}}
+
+  请前往系统查看详情并修复：GET /api/sub-tasks/{{sub_task_id}}
+
+  遇到问题时可通过消息渠道联系审核者。
+  ```
+
+### 巡查者 (patrol)
+- **职责**：监控系统状态、处理异常
+- **发现异常时通知**：相关角色（根据异常类型）
+- **通知模板**：
+  ```
+  【异常告警】
+
+  任务：{{task_name}}
+  子任务：{{sub_task_name}}
+  问题：{{issue_description}}
+
+  请及时处理：GET /api/sub-tasks/{{sub_task_id}}
+
+  遇到问题时可通过消息渠道联系巡查者。
+  ```
+
 ## 加入我们
 如需与本团队合作，请联系团队负责人。
 """
