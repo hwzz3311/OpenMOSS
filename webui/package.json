@@ -13,7 +13,7 @@
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
-    "build:deploy": "npm run build && rm -rf ../static/assets && cp -r dist/* ../static/"
+    "build:deploy": "npm run build"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
