@@ -224,10 +224,36 @@ async def get_sub_task(
 async def claim_sub_task(
     sub_task_id: str,
     req: ClaimRequest = ClaimRequest(),
-    agent: Agent = Depends(require_role("executor")),
+    agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
-    """执行者认领子任务：pending → assigned"""
+    from app.models.sub_task import SubTask
+
+    """认领子任务：pending → assigned
+    - 如果任务指定了 assigned_agent，则该 Agent 可以认领（不限角色）
+    - 如果任务未指定 assigned_agent，则只有 executor 角色可以认领
+    """
+    # 查询子任务信息
+    sub_task = db.query(SubTask).filter(SubTask.id == sub_task_id).first()
+    if not sub_task:
+        raise HTTPException(status_code=404, detail=f"子任务 {sub_task_id} 不存在")
+
+    # 权限检查
+    if sub_task.assigned_agent:
+        # 已指定 Agent，该 Agent 可以认领（不限角色）
+        if agent.id != sub_task.assigned_agent:
+            raise HTTPException(
+                status_code=403,
+                detail=f"此任务已指定其他 Agent，你无权认领"
+            )
+    else:
+        # 未指定 Agent，只有 executor 可以认领
+        if agent.role != "executor":
+            raise HTTPException(
+                status_code=403,
+                detail="只有 executor 角色可以认领未指定 Agent 的任务"
+            )
+
     try:
         return sub_task_service.claim_sub_task(db, sub_task_id, agent.id, req.session_id)
     except ValueError as e:
