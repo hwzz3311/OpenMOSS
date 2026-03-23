@@ -264,10 +264,33 @@ async def claim_sub_task(
 async def start_sub_task(
     sub_task_id: str,
     req: StartRequest = StartRequest(),
-    agent: Agent = Depends(require_role("executor")),
+    agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
-    """开始执行子任务：assigned/rework → in_progress"""
+    """开始执行子任务：assigned/rework → in_progress
+    - 如果任务指定了 assigned_agent，则该 Agent 可以执行（不限角色）
+    - 如果任务未指定 assigned_agent，则只有 executor 角色可以执行
+    """
+    from app.models.sub_task import SubTask
+
+    sub_task = db.query(SubTask).filter(SubTask.id == sub_task_id).first()
+    if not sub_task:
+        raise HTTPException(status_code=404, detail=f"子任务 {sub_task_id} 不存在")
+
+    # 权限检查
+    if sub_task.assigned_agent:
+        if agent.id != sub_task.assigned_agent:
+            raise HTTPException(
+                status_code=403,
+                detail="此任务已指定其他 Agent，你无权执行"
+            )
+    else:
+        if agent.role != "executor":
+            raise HTTPException(
+                status_code=403,
+                detail="只有 executor 角色可以执行未指定 Agent 的任务"
+            )
+
     try:
         return sub_task_service.start_sub_task(db, sub_task_id, req.session_id)
     except ValueError as e:
@@ -277,10 +300,33 @@ async def start_sub_task(
 @router.post("/{sub_task_id}/submit", response_model=SubTaskResponse, summary="提交成果")
 async def submit_sub_task(
     sub_task_id: str,
-    agent: Agent = Depends(require_role("executor")),
+    agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
-    """提交成果：in_progress → review"""
+    """提交成果：in_progress → review
+    - 如果任务指定了 assigned_agent，则该 Agent 可以提交（不限角色）
+    - 如果任务未指定 assigned_agent，则只有 executor 角色可以提交
+    """
+    from app.models.sub_task import SubTask
+
+    sub_task = db.query(SubTask).filter(SubTask.id == sub_task_id).first()
+    if not sub_task:
+        raise HTTPException(status_code=404, detail=f"子任务 {sub_task_id} 不存在")
+
+    # 权限检查
+    if sub_task.assigned_agent:
+        if agent.id != sub_task.assigned_agent:
+            raise HTTPException(
+                status_code=403,
+                detail="此任务已指定其他 Agent，你无权提交"
+            )
+    else:
+        if agent.role != "executor":
+            raise HTTPException(
+                status_code=403,
+                detail="只有 executor 角色可以提交未指定 Agent 的任务"
+            )
+
     try:
         return sub_task_service.submit_sub_task(db, sub_task_id)
     except ValueError as e:
@@ -383,10 +429,33 @@ class SessionUpdateRequest(BaseModel):
 async def update_session(
     sub_task_id: str,
     req: SessionUpdateRequest,
-    agent: Agent = Depends(require_role("executor")),
+    agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
-    """更新 in_progress 子任务的当前会话 ID（cron 唤醒后绑定新会话）"""
+    """更新 in_progress 子任务的当前会话 ID（cron 唤醒后绑定新会话）
+    - 如果任务指定了 assigned_agent，则该 Agent 可以更新（不限角色）
+    - 如果任务未指定 assigned_agent，则只有 executor 角色可以更新
+    """
+    from app.models.sub_task import SubTask
+
+    sub_task = db.query(SubTask).filter(SubTask.id == sub_task_id).first()
+    if not sub_task:
+        raise HTTPException(status_code=404, detail=f"子任务 {sub_task_id} 不存在")
+
+    # 权限检查
+    if sub_task.assigned_agent:
+        if agent.id != sub_task.assigned_agent:
+            raise HTTPException(
+                status_code=403,
+                detail="此任务已指定其他 Agent，你无权操作"
+            )
+    else:
+        if agent.role != "executor":
+            raise HTTPException(
+                status_code=403,
+                detail="只有 executor 角色可以操作未指定 Agent 的任务"
+            )
+
     try:
         return sub_task_service.update_session(db, sub_task_id, req.session_id)
     except ValueError as e:
