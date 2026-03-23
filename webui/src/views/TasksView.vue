@@ -3,6 +3,8 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useDebounceFn, useMediaQuery } from '@vueuse/core'
 import {
     adminTaskApi,
+    subTaskApi,
+    taskApi,
     type AdminModuleItem,
     type AdminPageResponse,
     type AdminSubTaskDetail,
@@ -14,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import TextOverflowTooltip from '@/components/common/TextOverflowTooltip.vue'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import {
     Sheet,
@@ -31,6 +34,7 @@ import {
     FolderKanban,
     ListTodo,
     Loader2,
+    Pencil,
     RefreshCw,
     Search,
 } from 'lucide-vue-next'
@@ -65,6 +69,23 @@ const selectedModuleId = ref<string | null>(null)
 const selectedTask = ref<AdminTaskDetail | null>(null)
 const selectedSubTask = ref<AdminSubTaskDetail | null>(null)
 const subTaskSheetOpen = ref(false)
+
+// 编辑任务弹窗状态
+const showEditTaskDialog = ref(false)
+const editTaskName = ref('')
+const editTaskDescription = ref('')
+const savingEditTask = ref(false)
+const editTaskError = ref('')
+
+// 编辑子任务弹窗状态
+const showEditSubTaskDialog = ref(false)
+const editSubTaskName = ref('')
+const editSubTaskDescription = ref('')
+const editSubTaskDeliverable = ref('')
+const editSubTaskAcceptance = ref('')
+const editSubTaskPriority = ref('')
+const savingEditSubTask = ref(false)
+const editSubTaskError = ref('')
 
 const taskPageData = ref<AdminPageResponse<AdminTaskItem>>(createEmptyPage<AdminTaskItem>())
 const modulePageData = ref<AdminPageResponse<AdminModuleItem>>(createEmptyPage<AdminModuleItem>())
@@ -501,6 +522,93 @@ function refreshCurrentView() {
     void loadTasks()
 }
 
+// 编辑任务相关函数
+function openEditTaskDialog() {
+    if (!selectedTask.value) return
+    editTaskName.value = selectedTask.value.name
+    editTaskDescription.value = selectedTask.value.description ?? ''
+    editTaskError.value = ''
+    showEditTaskDialog.value = true
+}
+
+async function handleSaveEditTask() {
+    if (!selectedTaskId.value) return
+    const name = editTaskName.value.trim()
+    if (!name) {
+        editTaskError.value = '任务名称不能为空'
+        return
+    }
+    // 检查任务状态
+    if (selectedTask.value && selectedTask.value.status !== 'planning' && selectedTask.value.status !== 'active') {
+        editTaskError.value = '仅 planning/active 状态的任务可编辑'
+        return
+    }
+    savingEditTask.value = true
+    editTaskError.value = ''
+    try {
+        await taskApi.update(selectedTaskId.value, {
+            name,
+            description: editTaskDescription.value.trim(),
+        })
+        showEditTaskDialog.value = false
+        // 刷新任务详情
+        await loadSelectedTaskContext(selectedTaskId.value)
+        // 刷新任务列表
+        void loadTasks()
+    } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        editTaskError.value = msg ?? '保存失败，请重试'
+    } finally {
+        savingEditTask.value = false
+    }
+}
+
+// 编辑子任务相关函数
+function openEditSubTaskDialog() {
+    if (!selectedSubTask.value) return
+    editSubTaskName.value = selectedSubTask.value.name
+    editSubTaskDescription.value = selectedSubTask.value.description ?? ''
+    editSubTaskDeliverable.value = selectedSubTask.value.deliverable ?? ''
+    editSubTaskAcceptance.value = selectedSubTask.value.acceptance ?? ''
+    editSubTaskPriority.value = selectedSubTask.value.priority ?? ''
+    editSubTaskError.value = ''
+    showEditSubTaskDialog.value = true
+}
+
+async function handleSaveEditSubTask() {
+    if (!selectedSubTask.value) return
+    const name = editSubTaskName.value.trim()
+    if (!name) {
+        editSubTaskError.value = '子任务名称不能为空'
+        return
+    }
+    // 检查子任务状态
+    const status = selectedSubTask.value.status
+    if (status !== 'pending' && status !== 'assigned') {
+        editSubTaskError.value = '仅 pending/assigned 状态的子任务可编辑'
+        return
+    }
+    savingEditSubTask.value = true
+    editSubTaskError.value = ''
+    try {
+        await subTaskApi.update(selectedSubTask.value.id, {
+            name,
+            description: editSubTaskDescription.value.trim(),
+            deliverable: editSubTaskDeliverable.value.trim(),
+            acceptance: editSubTaskAcceptance.value.trim(),
+            priority: editSubTaskPriority.value || undefined,
+        })
+        showEditSubTaskDialog.value = false
+        // 刷新子任务详情
+        await openSubTaskDetail(selectedSubTask.value.id)
+    } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        editSubTaskError.value = msg ?? '保存失败，请重试'
+    } finally {
+        savingEditSubTask.value = false
+    }
+}
+
 async function openSubTaskDetail(subTaskId: string) {
     const requestId = ++subTaskDetailRequestId
     subTaskSheetOpen.value = true
@@ -676,6 +784,10 @@ async function openSubTaskDetail(subTaskId: string) {
                                         class="text-sm text-muted-foreground leading-5" />
                                 </div>
                                 <div class="flex gap-1.5 shrink-0">
+                                    <Button variant="ghost" size="icon" class="h-7 w-7"
+                                        @click.stop="openEditTaskDialog">
+                                        <Pencil class="h-3.5 w-3.5" />
+                                    </Button>
                                     <Badge variant="outline" :class="getTaskBadgeClass(selectedTask.status)">
                                         {{ formatTaskStatus(selectedTask.status) }}
                                     </Badge>
@@ -902,6 +1014,10 @@ async function openSubTaskDetail(subTaskId: string) {
                         <div class="space-y-4">
                             <!-- 标签 -->
                             <div class="flex flex-wrap gap-1.5">
+                                <Button variant="ghost" size="icon" class="h-7 w-7"
+                                    @click.stop="openEditSubTaskDialog">
+                                    <Pencil class="h-3.5 w-3.5" />
+                                </Button>
                                 <Badge variant="outline" :class="getSubTaskBadgeClass(selectedSubTask.status)">
                                     {{ formatSubTaskStatus(selectedSubTask.status) }}
                                 </Badge>
@@ -980,6 +1096,96 @@ async function openSubTaskDetail(subTaskId: string) {
                 </div>
             </SheetContent>
         </Sheet>
+
+        <!-- 编辑任务弹窗 -->
+        <div v-if="showEditTaskDialog" class="fixed inset-0 z-50 flex items-center justify-center">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showEditTaskDialog = false" />
+            <div
+                class="relative z-10 w-full max-w-md rounded-xl border bg-background p-6 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                <div class="flex flex-col gap-1.5">
+                    <h3 class="text-lg font-semibold">编辑任务</h3>
+                    <p class="text-sm text-muted-foreground">仅 planning/active 状态的任务可编辑</p>
+                </div>
+
+                <div class="mt-5 space-y-4">
+                    <div class="space-y-2">
+                        <Label for="edit-task-name">任务名称</Label>
+                        <Input id="edit-task-name" v-model="editTaskName" placeholder="请输入任务名称"
+                            :disabled="savingEditTask" />
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="edit-task-desc">任务描述</Label>
+                        <textarea id="edit-task-desc" v-model="editTaskDescription"
+                            class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="请输入任务描述（可选）" :disabled="savingEditTask" />
+                    </div>
+                    <div v-if="editTaskError" class="text-sm text-red-500">
+                        {{ editTaskError }}
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end gap-2.5">
+                    <Button variant="outline" @click="showEditTaskDialog = false" :disabled="savingEditTask">
+                        取消
+                    </Button>
+                    <Button @click="handleSaveEditTask" :disabled="savingEditTask">
+                        <Loader2 v-if="savingEditTask" class="mr-2 h-4 w-4 animate-spin" />
+                        {{ savingEditTask ? '保存中...' : '保存' }}
+                    </Button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 编辑子任务弹窗 -->
+        <div v-if="showEditSubTaskDialog" class="fixed inset-0 z-50 flex items-center justify-center">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showEditSubTaskDialog = false" />
+            <div
+                class="relative z-10 w-full max-w-lg rounded-xl border bg-background p-6 shadow-lg animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                <div class="flex flex-col gap-1.5">
+                    <h3 class="text-lg font-semibold">编辑子任务</h3>
+                    <p class="text-sm text-muted-foreground">仅 pending/assigned 状态的子任务可编辑</p>
+                </div>
+
+                <div class="mt-5 space-y-4">
+                    <div class="space-y-2">
+                        <Label for="edit-subtask-name">子任务名称</Label>
+                        <Input id="edit-subtask-name" v-model="editSubTaskName" placeholder="请输入子任务名称"
+                            :disabled="savingEditSubTask" />
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="edit-subtask-desc">任务描述</Label>
+                        <textarea id="edit-subtask-desc" v-model="editSubTaskDescription"
+                            class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="请输入任务描述（可选）" :disabled="savingEditSubTask" />
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="edit-subtask-deliverable">交付物要求</Label>
+                        <textarea id="edit-subtask-deliverable" v-model="editSubTaskDeliverable"
+                            class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="请输入交付物要求（可选）" :disabled="savingEditSubTask" />
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="edit-subtask-acceptance">验收标准</Label>
+                        <textarea id="edit-subtask-acceptance" v-model="editSubTaskAcceptance"
+                            class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="请输入验收标准（可选）" :disabled="savingEditSubTask" />
+                    </div>
+                    <div v-if="editSubTaskError" class="text-sm text-red-500">
+                        {{ editSubTaskError }}
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end gap-2.5">
+                    <Button variant="outline" @click="showEditSubTaskDialog = false" :disabled="savingEditSubTask">
+                        取消
+                    </Button>
+                    <Button @click="handleSaveEditSubTask" :disabled="savingEditSubTask">
+                        <Loader2 v-if="savingEditSubTask" class="mr-2 h-4 w-4 animate-spin" />
+                        {{ savingEditSubTask ? '保存中...' : '保存' }}
+                    </Button>
+                </div>
+            </div>
+        </div>
     </TooltipProvider>
 </template>
 

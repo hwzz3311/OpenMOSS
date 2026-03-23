@@ -233,6 +233,8 @@ export const subTaskApi = {
   list: (params?: { task_id?: string; status?: string; page?: number; page_size?: number }) =>
     api.get('/sub-tasks', { params }),
   get: (id: string) => api.get(`/sub-tasks/${id}`),
+  update: (id: string, data: { name?: string; description?: string; deliverable?: string; acceptance?: string; priority?: string }) =>
+    api.put(`/sub-tasks/${id}`, data),
 }
 
 export const agentApi = {
