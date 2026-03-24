@@ -354,6 +354,8 @@ def cmd_sub_task_edit(args):
         body["type"] = args.type
     if hasattr(args, 'remarks') and args.remarks:
         body["remarks"] = args.remarks
+    if hasattr(args, 'assign') and args.assign:
+        body["assigned_agent"] = args.assign
     data = _request("put", f"/sub-tasks/{args.id}", args.key, json=body)
     print(f"✅ 子任务已更新")
     _print_json(data)
@@ -744,6 +746,7 @@ def main():
     p.add_argument("--priority", choices=["high", "medium", "low"])
     p.add_argument("--type", choices=["once", "recurring"], help="新类型")
     p.add_argument("--remarks", help="新备注")
+    p.add_argument("--assign", help="指派 Agent ID（可使用 agents 命令查看）")
     p.set_defaults(func=cmd_sub_task_edit)
 
     p = st_sub.add_parser("cancel", help="取消子任务")
