@@ -549,7 +549,7 @@ def cmd_agent_list(args):
     data = _request("get", "/agents", args.key, params=params)
     for a in data:
         desc = f" — {a['description']}" if a.get('description') else ""
-        print(f"  [{a['status']}] {a['name']} ({a['role']}) 积分:{a['total_score']}{desc}")
+        print(f"  [{a['status']}] {a['name']} ({a['role']}) ID:{a['id']} 积分:{a['total_score']}{desc}")
 
 
 # ============================================================
