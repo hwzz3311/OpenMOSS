@@ -4,10 +4,11 @@ Team Space 业务逻辑
 import os
 import uuid
 from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
-from app.models.team import Team, TeamMember, TeamProfile, TeamProfileTemplate
+from app.models.team import Team, TeamMember, TeamProfile, TeamProfileTemplate, TeamKnowledge
 from app.models.agent import Agent
 from app.models.task import Task
 from app.models.sub_task import SubTask
@@ -542,3 +543,93 @@ def update_template(db: Session, content: str) -> TeamProfileTemplate:
     db.commit()
     db.refresh(template)
     return template
+
+
+# ============================================================
+# 知识管理
+# ============================================================
+
+def create_knowledge(db: Session, team_id: str, author_agent_id: str, title: str, content: str) -> TeamKnowledge:
+    """创建知识经验"""
+    knowledge = TeamKnowledge(
+        team_id=team_id,
+        author_agent_id=author_agent_id,
+        title=title,
+        content=content
+    )
+    db.add(knowledge)
+    db.commit()
+    db.refresh(knowledge)
+    return knowledge
+
+
+def list_knowledge(db: Session, team_id: str, page: int = 1, page_size: int = 20) -> dict:
+    """获取团队知识列表"""
+    query = db.query(TeamKnowledge).filter(TeamKnowledge.team_id == team_id).order_by(TeamKnowledge.created_at.desc())
+    total = query.count()
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+def get_knowledge(db: Session, knowledge_id: str) -> Optional[TeamKnowledge]:
+    """获取单条知识"""
+    return db.query(TeamKnowledge).filter(TeamKnowledge.id == knowledge_id).first()
+
+
+def update_knowledge(db: Session, knowledge_id: str, title: str = None, content: str = None) -> TeamKnowledge:
+    """更新知识"""
+    knowledge = get_knowledge(db, knowledge_id)
+    if not knowledge:
+        raise ValueError("Knowledge not found")
+    if title is not None:
+        knowledge.title = title
+    if content is not None:
+        knowledge.content = content
+    db.commit()
+    db.refresh(knowledge)
+    return knowledge
+
+
+def delete_knowledge(db: Session, knowledge_id: str) -> None:
+    """删除知识"""
+    knowledge = get_knowledge(db, knowledge_id)
+    if knowledge:
+        db.delete(knowledge)
+        db.commit()
+
+
+def search_knowledge(db: Session, query: str, page: int = 1, page_size: int = 20) -> dict:
+    """跨团队搜索知识（标题关键词 + 正文模糊匹配）"""
+    from app.models.team import Team
+
+    # 搜索条件：标题关键词匹配 OR 正文模糊匹配
+    search_filter = or_(
+        TeamKnowledge.title.contains(query),
+        TeamKnowledge.content.contains(query)
+    )
+
+    query_obj = db.query(TeamKnowledge).filter(search_filter).order_by(TeamKnowledge.created_at.desc())
+    total = query_obj.count()
+    items = query_obj.offset((page - 1) * page_size).limit(page_size).all()
+
+    # 填充团队名称
+    results = []
+    for item in items:
+        team = db.query(Team).filter(Team.id == item.team_id).first()
+        results.append({
+            "id": item.id,
+            "title": item.title,
+            "content": item.content,
+            "team_id": item.team_id,
+            "team_name": team.name if team else "未知团队",
+            "author_agent_id": item.author_agent_id,
+            "created_at": item.created_at,
+            "updated_at": item.updated_at
+        })
+
+    return {"items": results, "total": total}
+
+
+def get_team_knowledge(db: Session, team_id: str, author_agent_id: str) -> dict:
+    """Agent 获取本团队知识列表"""
+    return list_knowledge(db, team_id, page=1, page_size=100)
