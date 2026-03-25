@@ -672,6 +672,48 @@ export const teamApi = {
   updateIntro: (self_introduction: string) => api.put('/teams/me/intro', { self_introduction }),
 }
 
+// 知识经验 API
+export const knowledgeApi = {
+  // Agent 端点 - 本团队知识
+  listMyTeamKnowledge: () => api.get<{ items: any[]; total: number }>('/teams/my/knowledge'),
+
+  getKnowledge: (knowledgeId: string) =>
+    api.get<any>(`/teams/my/knowledge/${knowledgeId}`),
+
+  uploadKnowledge: (data: { title: string; content: string }) =>
+    api.post('/teams/my/knowledge', data),
+
+  searchKnowledge: (params: { q: string; page?: number; page_size?: number }) =>
+    api.get<{ items: KnowledgeSearchItem[]; total: number }>('/teams/my/knowledge/search', { params }),
+
+  // 管理员端点
+  listTeamKnowledge: (teamId: string, params?: { page?: number; page_size?: number }) =>
+    api.get<{ items: any[]; total: number }>(`/admin/teams/${teamId}/knowledge`, { params }),
+
+  getTeamKnowledge: (teamId: string, knowledgeId: string) =>
+    api.get<any>(`/admin/teams/${teamId}/knowledge/${knowledgeId}`),
+
+  createKnowledge: (teamId: string, data: { title: string; content: string; author_agent_id?: string }) =>
+    api.post(`/admin/teams/${teamId}/knowledge`, data),
+
+  updateKnowledge: (teamId: string, knowledgeId: string, data: { title?: string; content?: string }) =>
+    api.put(`/admin/teams/${teamId}/knowledge/${knowledgeId}`, data),
+
+  deleteKnowledge: (teamId: string, knowledgeId: string) =>
+    api.delete(`/admin/teams/${teamId}/knowledge/${knowledgeId}`),
+}
+
+interface KnowledgeSearchItem {
+  id: string
+  title: string
+  content: string
+  team_id: string
+  team_name: string
+  author_agent_id: string
+  created_at: string
+  updated_at?: string
+}
+
 export const adminTeamApi = {
   // 团队管理
   list: (params?: { page?: number; page_size?: number }) =>
