@@ -283,7 +283,8 @@ def list_team_knowledge(
     team_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: dict = Depends(verify_admin)
 ):
     return team_service.list_knowledge(db, team_id, page, page_size)
 
@@ -304,7 +305,8 @@ def create_team_knowledge(
 def get_team_knowledge(
     team_id: str,
     knowledge_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: dict = Depends(verify_admin)
 ):
     knowledge = team_service.get_knowledge(db, knowledge_id)
     if not knowledge or knowledge.team_id != team_id:
