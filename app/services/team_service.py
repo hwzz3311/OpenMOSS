@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 
 from app.models.team import Team, TeamMember, TeamProfile, TeamProfileTemplate, TeamKnowledge
 from app.models.agent import Agent
@@ -565,10 +565,27 @@ def create_knowledge(db: Session, team_id: str, author_agent_id: str, title: str
 
 def list_knowledge(db: Session, team_id: str, page: int = 1, page_size: int = 20) -> dict:
     """获取团队知识列表"""
+    from app.models.team import TeamKnowledge
+
     query = db.query(TeamKnowledge).filter(TeamKnowledge.team_id == team_id).order_by(TeamKnowledge.created_at.desc())
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+    # 转换为字典格式
+    results = []
+    for item in items:
+        results.append({
+            "id": item.id,
+            "title": item.title,
+            "content": item.content,
+            "team_id": item.team_id,
+            "team_name": None,  # 本团队列表不需要团队名
+            "author_agent_id": item.author_agent_id,
+            "created_at": item.created_at,
+            "updated_at": item.updated_at
+        })
+
+    return {"items": results, "total": total, "page": page, "page_size": page_size}
 
 
 def get_knowledge(db: Session, knowledge_id: str) -> Optional[TeamKnowledge]:
@@ -590,12 +607,14 @@ def update_knowledge(db: Session, knowledge_id: str, title: str = None, content:
     return knowledge
 
 
-def delete_knowledge(db: Session, knowledge_id: str) -> None:
+def delete_knowledge(db: Session, knowledge_id: str) -> bool:
     """删除知识"""
     knowledge = get_knowledge(db, knowledge_id)
-    if knowledge:
-        db.delete(knowledge)
-        db.commit()
+    if not knowledge:
+        return False
+    db.delete(knowledge)
+    db.commit()
+    return True
 
 
 def search_knowledge(db: Session, query: str, page: int = 1, page_size: int = 20) -> dict:
@@ -608,20 +627,23 @@ def search_knowledge(db: Session, query: str, page: int = 1, page_size: int = 20
         TeamKnowledge.content.contains(query)
     )
 
-    query_obj = db.query(TeamKnowledge).filter(search_filter).order_by(TeamKnowledge.created_at.desc())
-    total = query_obj.count()
-    items = query_obj.offset((page - 1) * page_size).limit(page_size).all()
+    # 使用 outerjoin 一次性获取知识与团队信息
+    results_query = db.query(TeamKnowledge, Team.name).outerjoin(
+        Team, Team.id == TeamKnowledge.team_id
+    ).filter(search_filter).order_by(TeamKnowledge.created_at.desc())
 
-    # 填充团队名称
+    total = results_query.count()
+    items = results_query.offset((page - 1) * page_size).limit(page_size).all()
+
+    # 构建返回结果
     results = []
-    for item in items:
-        team = db.query(Team).filter(Team.id == item.team_id).first()
+    for item, team_name in items:
         results.append({
             "id": item.id,
             "title": item.title,
             "content": item.content,
             "team_id": item.team_id,
-            "team_name": team.name if team else "未知团队",
+            "team_name": team_name or "未知团队",
             "author_agent_id": item.author_agent_id,
             "created_at": item.created_at,
             "updated_at": item.updated_at
