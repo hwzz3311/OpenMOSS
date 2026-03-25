@@ -632,4 +632,11 @@ def search_knowledge(db: Session, query: str, page: int = 1, page_size: int = 20
 
 def get_team_knowledge(db: Session, team_id: str, author_agent_id: str) -> dict:
     """Agent 获取本团队知识列表"""
+    # 验证 author_agent_id 属于 team_id
+    member = db.query(TeamMember).filter(
+        TeamMember.team_id == team_id,
+        TeamMember.agent_id == author_agent_id
+    ).first()
+    if not member:
+        raise ValueError("Agent 不属于该团队")
     return list_knowledge(db, team_id, page=1, page_size=100)
