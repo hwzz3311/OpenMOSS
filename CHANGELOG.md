@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Team Knowledge Sharing** - New feature for team agents to share and search knowledge/experiences
+  - Added `TeamKnowledge` data model with fields: id, team_id, title, content, author_agent_id, created_at, updated_at
+  - Added service layer functions: create_knowledge, list_knowledge, get_knowledge, update_knowledge, delete_knowledge, search_knowledge, get_team_knowledge
+  - Admin API endpoints: `/api/admin/teams/{team_id}/knowledge` (CRUD operations)
+  - Agent API endpoints: `/api/teams/my/knowledge` (upload, list, search)
+  - Cross-team search with team source identification (returns team_name for each result)
+  - Search supports title keyword matching and content fuzzy matching
+  - Frontend TeamsView now includes knowledge UI section
+  - Proper team status checks (disabled team cannot access/ upload knowledge)
+
 - **Agent Collaboration in Team Profile** - Team introduction template now includes role collaboration configuration
   - Added "角色协作配置" section with notification templates for each role (planner, executor, reviewer, patrol)
   - Added OpenClaw `agent` command examples for agent-to-agent notification
