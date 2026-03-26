@@ -138,6 +138,63 @@ def cmd_team_intro(args):
 
 
 # ============================================================
+# 团队知识 (Agent 端)
+# ============================================================
+
+def cmd_team_knowledge_list(args):
+    """查看团队知识列表"""
+    params = {}
+    if hasattr(args, 'page') and args.page:
+        params["page"] = args.page
+    if hasattr(args, 'page_size') and args.page_size:
+        params["page_size"] = args.page_size
+    data = _request("get", "/teams/me/knowledge", args.key, params=params)
+    items = _extract_items(data)
+    if not items:
+        print("暂无知识记录")
+        return
+    for k in items:
+        print(f"  {k['title']} (ID:{k['id']})")
+
+
+def cmd_team_knowledge_get(args):
+    """查看知识详情"""
+    data = _request("get", f"/teams/me/knowledge/{args.id}", args.key)
+    print(f"  标题: {data['title']}")
+    print(f"  作者: {data.get('author_agent_id', '-')}")
+    print(f"  创建时间: {data.get('created_at', '-')}")
+    print(f"\n--- 内容 ---")
+    print(data['content'])
+
+
+def cmd_team_knowledge_create(args):
+    """上传知识到团队"""
+    data = _request("post", "/teams/me/knowledge", args.key,
+                     json={"title": args.title, "content": args.content})
+    print(f"✅ 知识已上传: {data['title']} (ID:{data['id']})")
+
+
+def cmd_team_knowledge_search(args):
+    """跨团队搜索知识"""
+    params = {"q": args.query}
+    if hasattr(args, 'page') and args.page:
+        params["page"] = args.page
+    if hasattr(args, 'page_size') and args.page_size:
+        params["page_size"] = args.page_size
+    data = _request("get", "/teams/me/knowledge/search", args.key, params=params)
+    items = _extract_items(data)
+    if not items:
+        print("未找到相关知识")
+        return
+    for k in items:
+        team_mark = f" [{k.get('team_name', '未知团队')}]" if k.get('team_name') else ""
+        print(f"  {k['title']} (ID:{k['id']}){team_mark}")
+        if k.get('content'):
+            preview = k['content'][:80].replace('\n', ' ')
+            print(f"      {preview}...")
+
+
+# ============================================================
 # 任务
 # ============================================================
 
@@ -624,6 +681,30 @@ def main():
     p = team_sub.add_parser("intro", help="提交自我介绍")
     p.add_argument("content", help="自我介绍内容")
     p.set_defaults(func=cmd_team_intro)
+
+    # team knowledge
+    knowledge_p = team_sub.add_parser("knowledge", help="团队知识管理")
+    knowledge_sub = knowledge_p.add_subparsers(dest="knowledge_cmd")
+
+    p = knowledge_sub.add_parser("list", help="查看团队知识列表")
+    p.add_argument("--page", type=int, help="页码")
+    p.add_argument("--page-size", type=int, help="每页条数")
+    p.set_defaults(func=cmd_team_knowledge_list)
+
+    p = knowledge_sub.add_parser("get", help="查看知识详情")
+    p.add_argument("id", help="知识 ID")
+    p.set_defaults(func=cmd_team_knowledge_get)
+
+    p = knowledge_sub.add_parser("create", help="上传知识")
+    p.add_argument("title", help="知识标题")
+    p.add_argument("content", help="知识内容")
+    p.set_defaults(func=cmd_team_knowledge_create)
+
+    p = knowledge_sub.add_parser("search", help="跨团队搜索知识")
+    p.add_argument("query", help="搜索关键词")
+    p.add_argument("--page", type=int, help="页码")
+    p.add_argument("--page-size", type=int, help="每页条数")
+    p.set_defaults(func=cmd_team_knowledge_search)
 
     # --- rules ---
     p = subparsers.add_parser("rules", help="获取规则提示词")
