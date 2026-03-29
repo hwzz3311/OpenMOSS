@@ -11,6 +11,7 @@ from app.database import get_db
 from app.auth.dependencies import get_current_agent, verify_admin, require_role
 from app.services import sub_task_service
 from app.models.agent import Agent
+from app.schemas.sub_task import SubmissionRequest
 
 
 router = APIRouter(prefix="/sub-tasks", tags=["SubTask"])
@@ -300,12 +301,14 @@ async def start_sub_task(
 @router.post("/{sub_task_id}/submit", response_model=SubTaskResponse, summary="提交成果")
 async def submit_sub_task(
     sub_task_id: str,
+    req: SubmissionRequest = SubmissionRequest(),
     agent: Agent = Depends(get_current_agent),
     db: Session = Depends(get_db),
 ):
     """提交成果：in_progress → review
     - 如果任务指定了 assigned_agent，则该 Agent 可以提交（不限角色）
     - 如果任务未指定 assigned_agent，则只有 executor 角色可以提交
+    - 可选在请求体中携带 submission 提交清单
     """
     from app.models.sub_task import SubTask
 
@@ -328,7 +331,8 @@ async def submit_sub_task(
             )
 
     try:
-        return sub_task_service.submit_sub_task(db, sub_task_id)
+        submission_data = req.submission.model_dump() if req.submission else None
+        return sub_task_service.submit_sub_task(db, sub_task_id, submission=submission_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
