@@ -78,6 +78,21 @@ export interface AdminModuleItem {
   created_at: string | null
 }
 
+// 提交清单类型
+export interface SubTaskSubmissionItem {
+  name: string
+  path: string
+  type: 'file' | 'directory' | 'config' | 'doc' | 'other'
+  description: string
+  status: 'completed' | 'pending'
+}
+
+export interface SubTaskSubmission {
+  items: SubTaskSubmissionItem[]
+  summary: string
+  submitted_at?: string
+}
+
 export interface AdminSubTaskItem {
   id: string
   task_id: string
@@ -98,6 +113,7 @@ export interface AdminSubTaskItem {
   acceptance: string
   remarks: string | null
   recurring_config: object | null
+  submission: SubTaskSubmission | null
   created_at: string | null
   updated_at: string | null
   completed_at: string | null
@@ -239,6 +255,8 @@ export const subTaskApi = {
   get: (id: string) => api.get(`/sub-tasks/${id}`),
   update: (id: string, data: { name?: string; description?: string; deliverable?: string; acceptance?: string; priority?: string; type?: string; remarks?: string; status?: string; assigned_agent?: string; recurring_config?: object }) =>
     api.put(`/sub-tasks/${id}`, data),
+  submit: (subTaskId: string, submission?: SubTaskSubmission) =>
+    api.post(`/sub-tasks/${subTaskId}/submit`, { submission }),
 }
 
 export const agentApi = {
