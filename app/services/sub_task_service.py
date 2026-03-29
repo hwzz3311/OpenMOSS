@@ -166,9 +166,28 @@ def start_sub_task(db: Session, sub_task_id: str, session_id: str = None) -> Sub
     return sub_task
 
 
-def submit_sub_task(db: Session, sub_task_id: str) -> SubTask:
+def submit_sub_task(db: Session, sub_task_id: str, submission: dict = None) -> SubTask:
     """提交成果：in_progress → review"""
-    return _change_status(db, sub_task_id, "review")
+    from datetime import datetime
+
+    sub_task = db.query(SubTask).filter(SubTask.id == sub_task_id).first()
+    if not sub_task:
+        raise ValueError(f"子任务 {sub_task_id} 不存在")
+
+    # 校验：最多 50 项
+    if submission and submission.get("items"):
+        items = submission.get("items")
+        if len(items) > 50:
+            raise ValueError("提交清单最多 50 项")
+
+    # 准备更新数据
+    kwargs = {}
+    if submission:
+        # 注入提交时间
+        submission["submitted_at"] = datetime.now().isoformat()
+        kwargs["submission"] = submission
+
+    return _change_status(db, sub_task_id, "review", **kwargs)
 
 
 def complete_sub_task(db: Session, sub_task_id: str, auto_commit: bool = True) -> SubTask:
