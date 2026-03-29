@@ -94,6 +94,9 @@ const editSubTaskRecurringConfig = ref('')
 const savingEditSubTask = ref(false)
 const editSubTaskError = ref('')
 
+// 提交清单
+const submissionJson = ref('')
+
 // 可用 Agent 列表
 const availableAgents = ref<{ id: string; name: string; role: string }[]>([])
 // 编辑子任务时的团队 Agent 列表
@@ -230,6 +233,26 @@ function clearSelectedTaskState() {
 
 function toggleModule(moduleId: string) {
     selectedModuleId.value = selectedModuleId.value === moduleId ? null : moduleId
+}
+
+async function handleSubmitWithJson() {
+    if (!submissionJson.value || !selectedSubTask.value) return
+    try {
+        const submission = JSON.parse(submissionJson.value)
+        // 校验格式
+        if (!Array.isArray(submission.items)) {
+            throw new Error("items 必须是数组")
+        }
+        if (submission.items.length > 50) {
+            throw new Error("最多 50 项")
+        }
+        await subTaskApi.submit(selectedSubTask.value.id, submission)
+        // 刷新详情
+        await loadSubTaskDetail(selectedSubTask.value.id)
+        submissionJson.value = ''
+    } catch (e: any) {
+        alert('JSON 格式错误: ' + e.message)
+    }
 }
 
 function formatDate(value: string | null) {
@@ -1149,6 +1172,58 @@ async function openSubTaskDetail(subTaskId: string) {
                                 <p class="mt-2 whitespace-pre-wrap text-sm leading-6">
                                     {{ selectedSubTask.deliverable || '暂无交付物要求。' }}
                                 </p>
+                            </div>
+
+                            <!-- 提交清单编辑（in_progress 状态显示） -->
+                            <div v-if="selectedSubTask && selectedSubTask.status === 'in_progress'" class="rounded-xl border border-primary/50 bg-primary/5 p-3.5 space-y-3">
+                                <div class="text-[11px] text-primary uppercase tracking-wider">
+                                    提交清单
+                                </div>
+                                <p class="text-xs text-muted-foreground">
+                                    完成后可在此填写提交清单，列出产出物供 Reviewer 审查
+                                </p>
+                                <div class="space-y-2">
+                                    <Label for="submission-json">提交清单 (JSON)</Label>
+                                    <textarea
+                                        id="submission-json"
+                                        v-model="submissionJson"
+                                        class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        placeholder='{"items":[{"name":"文件名","path":"/path","type":"file","description":"说明","status":"completed"}],"summary":"提交说明"}'
+                                    />
+                                </div>
+                                <Button @click="handleSubmitWithJson" :disabled="!submissionJson">
+                                    提交并携带清单
+                                </Button>
+                            </div>
+
+                            <!-- 提交清单（review/done 状态显示） -->
+                            <div v-if="selectedSubTask && (selectedSubTask.status === 'review' || selectedSubTask.status === 'done') && selectedSubTask.submission" class="rounded-xl border border-border/50 p-3.5">
+                                <div class="text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+                                    提交清单 · {{ selectedSubTask.submission.items?.length || 0 }}
+                                </div>
+                                <div v-if="selectedSubTask.submission.summary" class="mt-2 text-sm text-muted-foreground">
+                                    {{ selectedSubTask.submission.summary }}
+                                </div>
+                                <div class="mt-3 space-y-2">
+                                    <div v-for="(item, idx) in selectedSubTask.submission.items" :key="idx"
+                                        class="flex items-start gap-2 text-xs p-2 rounded bg-muted/30">
+                                        <span class="shrink-0 px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                            {{ item.type }}
+                                        </span>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-medium">{{ item.name }}</div>
+                                            <div class="text-muted-foreground truncate">{{ item.path }}</div>
+                                            <div v-if="item.description" class="text-muted-foreground mt-0.5">
+                                                {{ item.description }}
+                                            </div>
+                                        </div>
+                                        <span v-if="item.status === 'completed'" class="shrink-0 text-green-500">✓</span>
+                                        <span v-else class="shrink-0 text-amber-500">○</span>
+                                    </div>
+                                </div>
+                                <div v-if="selectedSubTask.submission.submitted_at" class="mt-2 text-[10px] text-muted-foreground">
+                                    提交于 {{ formatDate(selectedSubTask.submission.submitted_at) }}
+                                </div>
                             </div>
 
                             <!-- 验收标准 -->
