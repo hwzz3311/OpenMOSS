@@ -144,6 +144,14 @@ def _migrate_team_fields():
                 db.commit()
                 print("[Database] 已迁移 sub_task 表添加 remarks 字段")
 
+        # 为 sub_task 表添加 submission 字段
+        if "sub_task" in tables:
+            subtask_columns = [c["name"] for c in inspector.get_columns("sub_task")]
+            if "submission" not in subtask_columns:
+                db.execute(text("ALTER TABLE sub_task ADD COLUMN submission JSON"))
+                db.commit()
+                print("[Database] 已迁移 sub_task 表添加 submission 字段")
+
         # 为 team 表添加 working_dir 字段
         if "team" in tables:
             team_columns = [c["name"] for c in inspector.get_columns("team")]
