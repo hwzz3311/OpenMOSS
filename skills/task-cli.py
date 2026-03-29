@@ -389,9 +389,24 @@ def cmd_sub_task_start(args):
 
 
 def cmd_sub_task_submit(args):
-    """提交成果"""
-    data = _request("post", f"/sub-tasks/{args.id}/submit", args.key)
-    print(f"✅ 已提交: {data['name']}，等待审查")
+    """提交成果（可选带提交清单）"""
+    body = {}
+    if args.submission:
+        import json
+        submission_data = args.submission
+        if submission_data.startswith('@'):
+            # 读取文件
+            file_path = submission_data[1:]
+            with open(file_path, 'r', encoding='utf-8') as f:
+                body["submission"] = json.load(f)
+        else:
+            body["submission"] = json.loads(submission_data)
+
+    data = _request("post", f"/sub-tasks/{args.id}/submit", args.key, json=body)
+    if body.get("submission"):
+        print(f"✅ 已提交: {data['name']}，含提交清单")
+    else:
+        print(f"✅ 已提交: {data['name']}，等待审查")
 
 
 def cmd_sub_task_edit(args):
@@ -816,6 +831,7 @@ def main():
 
     p = st_sub.add_parser("submit", help="提交成果")
     p.add_argument("id", help="子任务 ID")
+    p.add_argument("--submission", help="提交清单 JSON（可直接传入或 @文件路径）")
     p.set_defaults(func=cmd_sub_task_submit)
 
     p = st_sub.add_parser("edit", help="编辑子任务")
